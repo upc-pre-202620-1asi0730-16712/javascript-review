@@ -1,0 +1,163 @@
+@startuml
+skinparam monochrome true
+skinparam classAttributeIconSize 0
+skinparam padding 1
+
+' Shared Bounded Context
+package "Shared Bounded Context" {
+  class SupplierId {
+    -#value: string
+    +generate(): SupplierId <<static>> <<factory>>
+    +value: string
+    +equals(other: SupplierId): boolean
+    +toString(): string
+  }
+
+  class PurchaseOrderId {
+    -#value: string
+    +generate(): PurchaseOrderId <<static>> <<factory>>
+    +value: string
+    +equals(other: PurchaseOrderId): boolean
+    +toString(): string
+  }
+
+  class ProductId {
+    -#value: string
+    +generate(): ProductId <<static>> <<factory>>
+    +value: string
+    +equals(other: ProductId): boolean
+    +toString(): string
+  }
+
+  class Currency {
+    -#code: string
+    +code: string
+    +equals(other: Currency): boolean
+    +toString(): string
+  }
+
+  class Money {
+    -#amount: number
+    -#currency: Currency
+    +amount: number
+    +currency: Currency
+    +add(other: Money): Money
+    +multiply(multiplier: number): Money
+    +toString(): string
+    +equals(other: Money): boolean
+  }
+
+  class DateTime {
+    -#date: Date
+    +date: Date
+    +toISOString(): string
+    +toString(): string
+    +equals(other: DateTime): boolean
+  }
+
+  class "uuid" <<utility>> {
+    +generateUuid(): string
+    +validateUuid(value: string): boolean
+  }
+}
+
+' SCM Bounded Context
+package "SCM Bounded Context" {
+  class Supplier {
+    -#id: SupplierId
+    -#name: string
+    -#contactEmail: string | null
+    -#lastOrderTotalPrice: Money | null
+    +id: SupplierId
+    +name: string
+    +contactEmail: string | null
+    +lastOrderTotalPrice: Money | null
+    +changeName(newName: string): void
+    +updateEmail(newEmail: string): void
+    +recordOrder(orderTotal: Money): void
+  }
+}
+
+' Procurement Bounded Context
+package "Procurement Bounded Context" {
+  class PurchaseOrder {
+    -#id: PurchaseOrderId
+    -#supplierId: SupplierId
+    -#currency: Currency
+    -#orderDate: DateTime
+    -#items: PurchaseOrderItem[]
+    -#state: PurchaseOrderState
+    +id: PurchaseOrderId
+    +supplierId: SupplierId
+    +currency: Currency
+    +orderDate: DateTime
+    +items: PurchaseOrderItem[]
+    +state: string
+    +addItem(params): void
+    +calculateTotalPrice(): Money
+    +submit(): void
+    +approve(): void
+    +ship(): void
+    +complete(): void
+    +cancel(): void
+  }
+
+  class PurchaseOrderItem {
+    -#orderId: PurchaseOrderId
+    -#productId: ProductId
+    -#quantity: number
+    -#unitPrice: Money
+    +orderId: PurchaseOrderId
+    +productId: ProductId
+    +quantity: number
+    +unitPrice: Money
+    +calculateSubtotal(): Money
+  }
+
+  class PurchaseOrderState {
+    -#value: string
+    +value: string
+    +toSubmittedFrom(currentState: PurchaseOrderState): PurchaseOrderState
+    +toApprovedFrom(currentState: PurchaseOrderState): PurchaseOrderState
+    +toShippedFrom(currentState: PurchaseOrderState): PurchaseOrderState
+    +toCompletedFrom(currentState: PurchaseOrderState): PurchaseOrderState
+    +toCanceledFrom(currentState: PurchaseOrderState): PurchaseOrderState
+    +equals(other: PurchaseOrderState): boolean
+  }
+}
+
+' Relationships
+SupplierId -down-> "uuid" : uses validateUuid, generateUuid
+PurchaseOrderId -down-> "uuid" : uses validateUuid, generateUuid
+ProductId -down-> "uuid" : uses validateUuid, generateUuid
+PurchaseOrder -down-> PurchaseOrderState : has
+Supplier -down-> SupplierId : has
+Supplier -down-> Money : has lastOrderTotalPrice
+PurchaseOrder -down-> PurchaseOrderId : has
+PurchaseOrder -down-> SupplierId : references
+PurchaseOrder -down-> Currency : has
+PurchaseOrder -down-> DateTime : has
+PurchaseOrder -down-> PurchaseOrderItem : contains *
+PurchaseOrderItem -down-> PurchaseOrderId : has
+PurchaseOrderItem -down-> ProductId : has
+PurchaseOrderItem -down-> Money : has unitPrice
+Money -down-> Currency : has
+
+note right of SupplierId
+  SupplierId.generate() creates a new UUID-based ID
+end note
+
+note right of PurchaseOrderId
+  PurchaseOrderId.generate() creates a new UUID-based ID
+end note
+
+note right of ProductId
+  ProductId.generate() creates a new UUID-based ID
+end note
+
+note right of PurchaseOrderState
+  States: Draft, Submitted, Approved, Shipped, Completed, Canceled
+  Transitions validated via to<State>From methods
+end note
+
+@enduml
